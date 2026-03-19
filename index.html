@@ -74,11 +74,17 @@
         }
         .brand-icon {
             width: 44px; height: 44px;
-            background: var(--blue);
             border-radius: 10px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 22px;
+            overflow: hidden;
             box-shadow: 0 0 0 4px rgba(37,99,235,.25);
+            background: var(--navy2);
+            flex-shrink: 0;
+        }
+        .brand-icon img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            border-radius: 10px;
         }
         h1 {
             font-size: 28px;
@@ -267,7 +273,9 @@
 <div class="card">
 
     <div class="brand-row">
-        <div class="brand-icon">⚡</div>
+        <div class="brand-icon">
+            <img src="data:image/png;base64,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" alt="Raw Data Cleaner logo">
+        </div>
         <h1>Data Cleaner</h1>
     </div>
     <p class="subtitle">Process raw transport Excel files securely in your browser.<br>No data is uploaded to any server.</p>
@@ -409,9 +417,11 @@
                 let cellValue = ws[addr].v != null ? String(ws[addr].v) : "";
 
                 if (isHeader) {
-                    // ── Capitalise header: snake_case → UPPER SPACED ──
-                    cellValue = cellValue.replace(/_/g, " ").toUpperCase();
-                    ws[addr].v = cellValue;
+                    // Headers already formatted — only convert snake_case if needed
+                    if (cellValue.includes("_")) {
+                        cellValue = cellValue.replace(/_/g, " ").toUpperCase();
+                        ws[addr].v = cellValue;
+                    }
                     ws[addr].t = "s";
 
                     ws[addr].s = {
@@ -550,32 +560,23 @@
 
         if (type === 'billing') {
             log("Formatting: Billing Database…");
-            const rows = data.map(r => {
-                const tid = String(r.TRIP_ID || "");
-                const eid = String(r.EMPLOYEE_ID || "");
-                return {
-                    trip_id:          tid,
-                    shift_date:       formatDate(r.TRIP_DATE),
-                    employee_id:      eid,
-                    employee_name:    r.EMPLOYEE_NAME,
-                    gender:           r.GENDER,
-                    shift_time:       r.SHIFT_TIME,
-                    pickup_time:      r.REPORTING_TIME,
-                    trip_direction:   r.DIRECTION,
-                    cab_reg_no:       r.VEHICLE_NO,
-                    vendor:           r.AGENCY_NAME,
-                    office:           r.REPORTING_LOCATION,
-                    landmark:         r.LANDMARK,
-                    address:          r.ADDRESS,
-                    flight_number:    r.FLIGHT_NO,
-                    emp_category:     r.EMP_CATEGORY,
-                    driver_name:      r.DRIVER_NAME,
-                    driver_mobile:    r.DRIVER_MOBILE,
-                    passenger_mobile: r.PASSENGER_MOBILE,
-                    unique_id:        `${tid}${eid}`,
-                    data_source:      "RAW_DATA"
-                };
-            });
+            const rows = data.map((r, idx) => ({
+                "SR.NO":          idx + 1,
+                "SHIFT DATE":     formatDate(r.TRIP_DATE),
+                "TRIP ID":        String(r.TRIP_ID || ""),
+                "FLIGHT NUMBER":  r.FLIGHT_NO,
+                "EMPLOYEE ID":    String(r.EMPLOYEE_ID || ""),
+                "GENDER":         r.GENDER,
+                "EMPLOYEE NAME":  r.EMPLOYEE_NAME,
+                "ADDRESS":        r.ADDRESS,
+                "CAB REG NO":     r.VEHICLE_NO,
+                "PLAN TIME":      r.REPORTING_TIME,
+                "SHIFT TIME":     r.SHIFT_TIME,
+                "LOCALITY":       r.REPORTING_LOCATION,
+                "KILOMETER":      "",
+                "MARSHAL":        "",
+                "REMARK":         ""
+            }));
             ws = XLSX.utils.json_to_sheet(rows);
 
         } else if (type === 'operation') {
