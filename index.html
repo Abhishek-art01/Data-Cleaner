@@ -473,6 +473,34 @@
         return String(v);
     }
 
+    function formatDateTime(v) {
+        if (!v) return "";
+        let dt = null;
+
+        if (v instanceof Date) {
+            dt = v;
+        } else if (typeof v === "number") {
+            const dateStr = XLSX.SSF.format("yyyy-mm-dd hh:mm:ss", v);
+            dt = new Date(dateStr);
+        } else {
+            const s = String(v).trim();
+            if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) return s;
+            dt = new Date(s);
+        }
+
+        if (!dt || isNaN(dt.getTime())) return String(v);
+
+        const dd   = String(dt.getDate()).padStart(2, "0");
+        const mm   = String(dt.getMonth() + 1).padStart(2, "0");
+        const yyyy = dt.getFullYear();
+        const hh   = String(dt.getHours()).padStart(2, "0");
+        const min  = String(dt.getMinutes()).padStart(2, "0");
+        const ss   = String(dt.getSeconds()).padStart(2, "0");
+
+        if (yyyy > 1899) return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
+        return `${hh}:${min}:${ss}`;
+    }
+
     // ─────────────────────────────────────────
     // Main Processing
     // ─────────────────────────────────────────
@@ -572,7 +600,7 @@
                 "ADDRESS":        r.ADDRESS,
                 "CAB REG NO":     r.VEHICLE_NO,
                 "SHIFT TIME":     r.SHIFT_TIME,
-                "PLAN TIME":      r.REPORTING_TIME,
+                "PLAN TIME":      formatDateTime(r.REPORTING_TIME),
                 "LOCALITY":       r.REPORTING_LOCATION,
                 "KILOMETER":      "",
                 "MARSHAL":        "",
