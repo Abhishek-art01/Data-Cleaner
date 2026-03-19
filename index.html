@@ -4,294 +4,616 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Raw Data Cleaner</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- xlsx-js-style: fork of SheetJS with full cell styling support -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+
+    <style>
+        :root {
+            --navy:   #0d1b2a;
+            --navy2:  #1b2e42;
+            --blue:   #2563eb;
+            --blue-l: #3b82f6;
+            --accent: #00c2ff;
+            --green:  #10b981;
+            --red:    #f43f5e;
+            --white:  #f8fafc;
+            --muted:  #94a3b8;
+            --border: #e2e8f0;
+            --card:   #ffffff;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--navy);
+            min-height: 100vh;
+            font-family: 'Bricolage Grotesque', sans-serif;
+            color: var(--white);
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 48px 16px 80px;
+
+            /* subtle grid pattern */
+            background-image:
+                linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* Glow blob */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -200px; left: 50%;
+            transform: translateX(-50%);
+            width: 700px; height: 500px;
+            background: radial-gradient(ellipse, rgba(37,99,235,.18) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .card {
+            background: rgba(255,255,255,.04);
+            border: 1px solid rgba(255,255,255,.09);
+            border-radius: 20px;
+            padding: 48px;
+            width: 100%;
+            max-width: 700px;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 32px 80px rgba(0,0,0,.5);
+        }
+
+        /* ── Header ── */
+        .brand-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 8px;
+        }
+        .brand-icon {
+            width: 44px; height: 44px;
+            background: var(--blue);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 0 0 4px rgba(37,99,235,.25);
+        }
+        h1 {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: var(--white);
+        }
+        .subtitle {
+            font-size: 14px;
+            color: var(--muted);
+            margin-bottom: 40px;
+            padding-left: 58px;
+            line-height: 1.5;
+        }
+
+        /* ── Labels ── */
+        .field-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 10px;
+            display: block;
+        }
+        .field-group { margin-bottom: 32px; }
+
+        /* ── Drop zone ── */
+        .drop-zone {
+            border: 2px dashed rgba(255,255,255,.14);
+            border-radius: 14px;
+            padding: 36px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color .2s, background .2s;
+            background: rgba(255,255,255,.02);
+            position: relative;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--blue-l);
+            background: rgba(37,99,235,.07);
+        }
+        .drop-icon {
+            font-size: 34px;
+            margin-bottom: 10px;
+            opacity: .5;
+        }
+        .drop-text {
+            font-size: 14px;
+            color: var(--muted);
+        }
+        .drop-text span {
+            color: var(--blue-l);
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .drop-zone input[type="file"] {
+            position: absolute; inset: 0;
+            opacity: 0; cursor: pointer;
+        }
+        #file-count {
+            display: inline-block;
+            margin-top: 10px;
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent);
+            background: rgba(0,194,255,.08);
+            border: 1px solid rgba(0,194,255,.2);
+            padding: 3px 12px;
+            border-radius: 20px;
+        }
+
+        /* ── Format Selector ── */
+        .format-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        .format-card {
+            position: relative;
+            cursor: pointer;
+        }
+        .format-card input[type="radio"] { display: none; }
+        .format-inner {
+            border: 2px solid rgba(255,255,255,.08);
+            border-radius: 12px;
+            padding: 18px 12px;
+            text-align: center;
+            transition: all .2s;
+            background: rgba(255,255,255,.02);
+        }
+        .format-card:hover .format-inner {
+            border-color: rgba(255,255,255,.22);
+            background: rgba(255,255,255,.04);
+        }
+        .format-card input:checked + .format-inner {
+            border-color: var(--blue-l);
+            background: rgba(37,99,235,.12);
+            box-shadow: 0 0 0 4px rgba(37,99,235,.12);
+        }
+        .format-emoji { font-size: 22px; margin-bottom: 6px; }
+        .format-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--white);
+            line-height: 1.3;
+        }
+        .format-sub {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 3px;
+        }
+
+        /* ── Button ── */
+        #processBtn {
+            width: 100%;
+            background: var(--blue);
+            color: #fff;
+            font-family: 'Bricolage Grotesque', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            padding: 16px 24px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            letter-spacing: .02em;
+            transition: background .2s, transform .1s, box-shadow .2s;
+            box-shadow: 0 4px 24px rgba(37,99,235,.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        #processBtn:hover:not(:disabled) {
+            background: var(--blue-l);
+            box-shadow: 0 6px 32px rgba(59,130,246,.5);
+            transform: translateY(-1px);
+        }
+        #processBtn:active:not(:disabled) { transform: translateY(0); }
+        #processBtn:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ── Log ── */
+        #log {
+            display: none;
+            margin-top: 20px;
+            background: rgba(0,0,0,.35);
+            border: 1px solid rgba(255,255,255,.07);
+            border-radius: 10px;
+            padding: 14px 16px;
+            height: 140px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.7;
+        }
+        #log .log-success { color: var(--green); }
+        #log .log-error   { color: var(--red); }
+        #log .log-info    { color: var(--accent); }
+
+        /* ── Spinner ── */
+        .spinner {
+            width: 18px; height: 18px;
+            border: 2px solid rgba(255,255,255,.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+            display: none;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Scrollbar */
+        #log::-webkit-scrollbar { width: 4px; }
+        #log::-webkit-scrollbar-track { background: transparent; }
+        #log::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
+    </style>
 </head>
-<body class="bg-gray-50 min-h-screen font-sans text-gray-800">
+<body>
 
-    <div class="max-w-3xl mx-auto pt-16 px-4">
-        <div class="bg-white p-8 rounded-xl shadow-lg border border-gray-100">
-            <h1 class="text-3xl font-bold text-gray-900 mb-2">Raw Data Cleaner</h1>
-            <p class="text-gray-500 mb-8">Process raw transport excel files securely in your browser. No data is uploaded to any server.</p>
+<div class="card">
 
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Upload Raw Excel Files</label>
-                <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-blue-500 transition-colors bg-gray-50">
-                    <div class="space-y-1 text-center">
-                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
-                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                        <div class="flex text-sm text-gray-600 justify-center">
-                            <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none">
-                                <span>Upload files</span>
-                                <input id="file-upload" name="file-upload" type="file" class="sr-only" multiple accept=".xlsx, .xls">
-                            </label>
-                        </div>
-                        <p class="text-xs text-gray-500" id="file-count">No files selected</p>
-                    </div>
+    <div class="brand-row">
+        <div class="brand-icon">⚡</div>
+        <h1>Data Cleaner</h1>
+    </div>
+    <p class="subtitle">Process raw transport Excel files securely in your browser.<br>No data is uploaded to any server.</p>
+
+    <!-- ── File Upload ── -->
+    <div class="field-group">
+        <span class="field-label">Upload Raw Excel Files</span>
+        <div class="drop-zone" id="dropZone">
+            <div class="drop-icon">📂</div>
+            <p class="drop-text">Drop files here or <span>browse to upload</span></p>
+            <input id="file-upload" type="file" multiple accept=".xlsx,.xls">
+        </div>
+        <span id="file-count">No files selected</span>
+    </div>
+
+    <!-- ── Output Format ── -->
+    <div class="field-group">
+        <span class="field-label">Output Format</span>
+        <div class="format-grid">
+            <label class="format-card">
+                <input type="radio" name="exportType" value="billing" checked>
+                <div class="format-inner">
+                    <div class="format-emoji">🧾</div>
+                    <div class="format-name">Billing</div>
+                    <div class="format-sub">Database format</div>
                 </div>
-            </div>
-
-            <div class="mb-8">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Select Output Format</label>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    
-                    <label class="relative flex cursor-pointer rounded-lg border bg-white p-4 shadow-sm focus:outline-none">
-                        <input type="radio" name="exportType" value="billing" class="sr-only" checked>
-                        <div class="flex flex-1 justify-center items-center text-center">
-                            <span class="font-medium text-gray-900 border-b-2 border-transparent transition-all peer-checked:border-blue-600">Billing Format</span>
-                        </div>
-                        <div class="pointer-events-none absolute -inset-px rounded-lg border-2 border-transparent peer-checked:border-blue-500" aria-hidden="true"></div>
-                    </label>
-
-                    <label class="relative flex cursor-pointer rounded-lg border bg-white p-4 shadow-sm focus:outline-none">
-                        <input type="radio" name="exportType" value="operation" class="sr-only">
-                        <div class="flex flex-1 justify-center items-center text-center">
-                            <span class="font-medium text-gray-900 border-b-2 border-transparent transition-all peer-checked:border-blue-600">Operations Format</span>
-                        </div>
-                        <div class="pointer-events-none absolute -inset-px rounded-lg border-2 border-transparent peer-checked:border-blue-500" aria-hidden="true"></div>
-                    </label>
-
-                    <label class="relative flex cursor-pointer rounded-lg border bg-white p-4 shadow-sm focus:outline-none">
-                        <input type="radio" name="exportType" value="roster" class="sr-only">
-                        <div class="flex flex-1 justify-center items-center text-center">
-                            <span class="font-medium text-gray-900 border-b-2 border-transparent transition-all peer-checked:border-blue-600">Roster Format</span>
-                        </div>
-                        <div class="pointer-events-none absolute -inset-px rounded-lg border-2 border-transparent peer-checked:border-blue-500" aria-hidden="true"></div>
-                    </label>
-
+            </label>
+            <label class="format-card">
+                <input type="radio" name="exportType" value="operation">
+                <div class="format-inner">
+                    <div class="format-emoji">⚙️</div>
+                    <div class="format-name">Operations</div>
+                    <div class="format-sub">Clean flat table</div>
                 </div>
-            </div>
-
-            <button id="processBtn" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-md hover:bg-blue-700 transition-colors shadow-sm">
-                Process & Download Data
-            </button>
-            
-            <div id="log" class="mt-4 text-sm text-gray-600 font-mono hidden bg-gray-100 p-4 rounded-md h-32 overflow-y-auto"></div>
+            </label>
+            <label class="format-card">
+                <input type="radio" name="exportType" value="roster">
+                <div class="format-inner">
+                    <div class="format-emoji">📋</div>
+                    <div class="format-name">Roster</div>
+                    <div class="format-sub">Grouped by trip</div>
+                </div>
+            </label>
         </div>
     </div>
 
-    <script>
-        const fileInput = document.getElementById('file-upload');
-        const fileCountDisplay = document.getElementById('file-count');
-        const processBtn = document.getElementById('processBtn');
-        const logDiv = document.getElementById('log');
+    <!-- ── Process Button ── -->
+    <button id="processBtn">
+        <span id="btnText">Process &amp; Download</span>
+        <div class="spinner" id="spinner"></div>
+    </button>
 
-        // Style the selected radio buttons
-        const radios = document.querySelectorAll('input[name="exportType"]');
-        radios.forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                document.querySelectorAll('.border-blue-500').forEach(el => el.classList.replace('border-blue-500', 'border-transparent'));
-                if(e.target.checked) {
-                    e.target.nextElementSibling.nextElementSibling.classList.replace('border-transparent', 'border-blue-500');
-                }
-            });
-        });
-        // Initial setup for default checked
-        document.querySelector('input[name="exportType"]:checked').nextElementSibling.nextElementSibling.classList.replace('border-transparent', 'border-blue-500');
+    <!-- ── Log ── -->
+    <div id="log"></div>
 
-        fileInput.addEventListener('change', () => {
-            const count = fileInput.files.length;
-            fileCountDisplay.textContent = count > 0 ? `${count} file(s) selected` : "No files selected";
-        });
+</div>
 
-        function log(msg) {
-            logDiv.classList.remove('hidden');
-            logDiv.innerHTML += `<div>> ${msg}</div>`;
-            logDiv.scrollTop = logDiv.scrollHeight;
-        }
+<script>
+    // ─────────────────────────────────────────
+    // UI Wiring
+    // ─────────────────────────────────────────
+    const fileInput   = document.getElementById('file-upload');
+    const fileCount   = document.getElementById('file-count');
+    const processBtn  = document.getElementById('processBtn');
+    const logDiv      = document.getElementById('log');
+    const spinner     = document.getElementById('spinner');
+    const btnText     = document.getElementById('btnText');
+    const dropZone    = document.getElementById('dropZone');
 
-        async function processFiles() {
-            if (fileInput.files.length === 0) {
-                alert("Please upload at least one Excel file.");
-                return;
-            }
+    fileInput.addEventListener('change', updateCount);
+    dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        fileInput.files = e.dataTransfer.files;
+        updateCount();
+    });
 
-            logDiv.innerHTML = '';
-            processBtn.disabled = true;
-            processBtn.textContent = "Processing...";
+    function updateCount() {
+        const n = fileInput.files.length;
+        fileCount.textContent = n > 0 ? `${n} file${n > 1 ? 's' : ''} selected` : 'No files selected';
+    }
 
-            try {
-                let allProcessedRows = [];
+    function log(msg, type = '') {
+        logDiv.style.display = 'block';
+        const div = document.createElement('div');
+        div.className = type ? `log-${type}` : '';
+        div.textContent = '> ' + msg;
+        logDiv.appendChild(div);
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
 
-                for (let file of fileInput.files) {
-                    log(`Reading ${file.name}...`);
-                    const data = await file.arrayBuffer();
-                    const workbook = XLSX.read(data, { type: 'array', cellText:false, cellDates:true });
-                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                    // Read raw 2D array to emulate Python's row-by-row iteration
-                    const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+    function setLoading(on) {
+        processBtn.disabled = on;
+        btnText.textContent  = on ? 'Processing…' : 'Process & Download';
+        spinner.style.display = on ? 'block' : 'none';
+    }
 
-                    let currentTripId = "";
-                    let currentHeader = {};
+    // ─────────────────────────────────────────
+    // Excel Styling  (mirrors Python format_excel_sheet)
+    // ─────────────────────────────────────────
+    const HEADER_FILL   = { patternType: "solid", fgColor: { rgb: "366092" } };
+    const HEADER_FONT   = { name: "Cambria", sz: 11, bold: true, color: { rgb: "FFFFFF" } };
+    const CELL_FONT     = { name: "Cambria", sz: 10 };
+    const CENTER_WRAP   = { horizontal: "center", vertical: "center", wrapText: true };
+    const THIN_BORDER   = {
+        top:    { style: "thin", color: { rgb: "B0B0B0" } },
+        bottom: { style: "thin", color: { rgb: "B0B0B0" } },
+        left:   { style: "thin", color: { rgb: "B0B0B0" } },
+        right:  { style: "thin", color: { rgb: "B0B0B0" } }
+    };
 
-                    rawRows.forEach((row, index) => {
-                        const col0 = String(row[0] || "").trim();
-                        const col1 = String(row[1] || "").trim();
-                        const col10 = String(row[10] || "").trim();
+    /**
+     * Apply full styling to a worksheet object (xlsx-js-style).
+     * Mirrors the Python format_excel_sheet() function.
+     * @param {object} ws   - worksheet
+     * @param {number} headerRow - 0-based row index for the header (default 0)
+     */
+    function applySheetStyling(ws, headerRow = 0) {
+        if (!ws || !ws['!ref']) return ws;
 
-                        // Update current Trip ID (Forward fill logic)
-                        if (col10.startsWith('T')) {
-                            currentTripId = col10.replace('T', '');
-                        }
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        const colWidths = new Array(range.e.c - range.s.c + 1).fill(10);
 
-                        // Identify Header Row
-                        if (col1.toUpperCase().includes("UNITED FACILITIES")) {
-                            currentHeader = {
-                                TRIP_DATE: row[0],
-                                AGENCY_NAME: "UNITED FACILITIES",
-                                D_LOGIN: String(row[2] || ""),
-                                VEHICLE_NO: String(row[3] || "").replace(/-/g, '').replace(/ /g, '').toUpperCase(),
-                                DRIVER_NAME: String(row[4] || ""),
-                                DRIVER_MOBILE: String(row[6] || ""),
-                                TRIP_ID: currentTripId
-                            };
+        // ── Row heights ──
+        const rowHeights = [];
+        for (let R = range.s.r; R <= range.e.r; R++) rowHeights.push({ hpt: 30 });
+        ws['!rows'] = rowHeights;
 
-                            // Parse Direction and Shift Time from D_LOGIN
-                            const loginParts = currentHeader.D_LOGIN.trim().split(' ');
-                            currentHeader.DIRECTION = loginParts[0] ? loginParts[0].toUpperCase().replace('LOGIN', 'PICKUP').replace('LOGOUT', 'DROP') : "";
-                            currentHeader.SHIFT_TIME = loginParts.length > 1 ? loginParts[1] : "";
-                        }
+        for (let R = range.s.r; R <= range.e.r; R++) {
+            for (let C = range.s.c; C <= range.e.c; C++) {
+                const addr = XLSX.utils.encode_cell({ r: R, c: C });
 
-                        // Identify Passenger Row
-                        if (/^[0-9]+$/.test(col0)) {
-                            let passengerRow = {
-                                PAX_NO: row[0],
-                                REPORTING_TIME: row[1],
-                                EMPLOYEE_ID: row[2],
-                                EMPLOYEE_NAME: row[3],
-                                GENDER: row[4],
-                                EMP_CATEGORY: row[5],
-                                FLIGHT_NO: row[6],
-                                ADDRESS: row[7],
-                                REPORTING_LOCATION: row[8],
-                                LANDMARK: row[9],
-                                PASSENGER_MOBILE: row[10],
-                            };
+                // Ensure cell exists
+                if (!ws[addr]) ws[addr] = { v: "", t: "s" };
 
-                            // Office Standardization
-                            let office = String(passengerRow.REPORTING_LOCATION).toUpperCase();
-                            if (office === "DELHI IGI T3" || office === "DELHI AIRPORT") office = "Terminal-3";
-                            if (office === "DELHI IGI T2") office = "Terminal-2";
-                            passengerRow.REPORTING_LOCATION = office;
+                const isHeader = (R === headerRow);
+                let cellValue = ws[addr].v != null ? String(ws[addr].v) : "";
 
-                            allProcessedRows.push({ ...passengerRow, ...currentHeader });
-                        }
-                    });
-                }
+                if (isHeader) {
+                    // ── Capitalise header: snake_case → UPPER SPACED ──
+                    cellValue = cellValue.replace(/_/g, " ").toUpperCase();
+                    ws[addr].v = cellValue;
+                    ws[addr].t = "s";
 
-                log(`Successfully merged ${allProcessedRows.length} passenger rows.`);
-                
-                const exportType = document.querySelector('input[name="exportType"]:checked').value;
-                exportData(allProcessedRows, exportType);
-
-            } catch (err) {
-                log(`<span class="text-red-500">Error: ${err.message}</span>`);
-                console.error(err);
-            } finally {
-                processBtn.disabled = false;
-                processBtn.textContent = "Process & Download Data";
-            }
-        }
-
-        function exportData(data, type) {
-            let finalWorkbook = XLSX.utils.book_new();
-            let finalSheet;
-
-            // Date Formatting Helper
-            const formatDate = (dateVal) => {
-                if (!dateVal) return "";
-                if (dateVal instanceof Date) {
-                    const d = String(dateVal.getDate()).padStart(2, '0');
-                    const m = String(dateVal.getMonth() + 1).padStart(2, '0');
-                    const y = dateVal.getFullYear();
-                    return `${d}-${m}-${y}`;
-                }
-                return String(dateVal);
-            };
-
-            if (type === 'billing') {
-                log("Formatting for Billing Database...");
-                // Map to Python output style
-                const billingData = data.map(row => {
-                    const trip_id = String(row.TRIP_ID || "");
-                    const emp_id = String(row.EMPLOYEE_ID || "");
-                    return {
-                        trip_id: trip_id,
-                        shift_date: formatDate(row.TRIP_DATE),
-                        employee_id: emp_id,
-                        employee_name: row.EMPLOYEE_NAME,
-                        gender: row.GENDER,
-                        shift_time: row.SHIFT_TIME,
-                        pickup_time: row.REPORTING_TIME,
-                        trip_direction: row.DIRECTION,
-                        cab_reg_no: row.VEHICLE_NO,
-                        vendor: row.AGENCY_NAME,
-                        office: row.REPORTING_LOCATION,
-                        landmark: row.LANDMARK,
-                        address: row.ADDRESS,
-                        flight_number: row.FLIGHT_NO,
-                        emp_category: row.EMP_CATEGORY,
-                        driver_name: row.DRIVER_NAME,
-                        driver_mobile: row.DRIVER_MOBILE,
-                        passenger_mobile: row.PASSENGER_MOBILE,
-                        unique_id: `${trip_id}${emp_id}`,
-                        data_source: "RAW_DATA"
+                    ws[addr].s = {
+                        fill:      HEADER_FILL,
+                        font:      HEADER_FONT,
+                        alignment: CENTER_WRAP,
+                        border:    THIN_BORDER
                     };
-                });
-                finalSheet = XLSX.utils.json_to_sheet(billingData);
-
-            } else if (type === 'operation') {
-                log("Formatting for Operations (Clean Table)...");
-                // Simple flat table with everything
-                finalSheet = XLSX.utils.json_to_sheet(data);
-
-            } else if (type === 'roster') {
-                log("Formatting for Roster (Sorted by Shift Time & Grouped by Trip)...");
-                
-                // Sort by Shift Time
-                data.sort((a, b) => String(a.SHIFT_TIME || "").localeCompare(String(b.SHIFT_TIME || "")));
-
-                // Group by Trip ID
-                const groupedByTrip = {};
-                data.forEach(row => {
-                    if (!groupedByTrip[row.TRIP_ID]) groupedByTrip[row.TRIP_ID] = [];
-                    groupedByTrip[row.TRIP_ID].push(row);
-                });
-
-                let aoaData = []; // Array of Arrays for custom layout
-
-                // Build layout: Header Row -> Passenger Rows
-                for (const trip in groupedByTrip) {
-                    const tripRows = groupedByTrip[trip];
-                    const h = tripRows[0]; // Header info
-
-                    // Insert custom header block for the trip
-                    aoaData.push([]); // Spacer
-                    aoaData.push(["TRIP DATE", "AGENCY NAME", "LOGIN/SHIFT", "VEHICLE NO", "DRIVER NAME", "DRIVER MOBILE", "TRIP ID"]);
-                    aoaData.push([formatDate(h.TRIP_DATE), h.AGENCY_NAME, `${h.DIRECTION} ${h.SHIFT_TIME}`, h.VEHICLE_NO, h.DRIVER_NAME, h.DRIVER_MOBILE, h.TRIP_ID]);
-                    
-                    // Passenger Column Headers
-                    aoaData.push(["PAX NO", "REPORTING TIME", "EMP ID", "NAME", "GENDER", "CATEGORY", "FLIGHT", "ADDRESS", "LOCATION", "LANDMARK", "MOBILE"]);
-                    
-                    // Passenger Data
-                    tripRows.forEach(pax => {
-                        aoaData.push([
-                            pax.PAX_NO, pax.REPORTING_TIME, pax.EMPLOYEE_ID, pax.EMPLOYEE_NAME, pax.GENDER, 
-                            pax.EMP_CATEGORY, pax.FLIGHT_NO, pax.ADDRESS, pax.REPORTING_LOCATION, pax.LANDMARK, pax.PASSENGER_MOBILE
-                        ]);
-                    });
+                } else {
+                    ws[addr].s = {
+                        font:      CELL_FONT,
+                        alignment: CENTER_WRAP,
+                        border:    THIN_BORDER
+                    };
                 }
-                finalSheet = XLSX.utils.aoa_to_sheet(aoaData);
-            }
 
-            XLSX.utils.book_append_sheet(finalWorkbook, finalSheet, "Cleaned Data");
-            log("Downloading Excel file...");
-            XLSX.writeFile(finalWorkbook, `Cleaned_${type.toUpperCase()}_Data.xlsx`);
-            log("Process Complete! ✅");
+                // ── Track max content width for auto-fit ──
+                const contentLen = cellValue.length + 2;
+                const colIdx = C - range.s.c;
+                if (contentLen > colWidths[colIdx]) colWidths[colIdx] = contentLen;
+            }
         }
 
-        processBtn.addEventListener('click', processFiles);
-    </script>
+        // ── Column widths: clamp 10–50, overrides for known cols ──
+        ws['!cols'] = colWidths.map((w, i) => {
+            // Check header value for special columns
+            const headerAddr = XLSX.utils.encode_cell({ r: headerRow, c: range.s.c + i });
+            const headerVal  = (ws[headerAddr] && ws[headerAddr].v) ? String(ws[headerAddr].v).toLowerCase().trim() : "";
+
+            if (["address", "employee address"].includes(headerVal)) return { wch: 80 };
+            if (["employee name", "employee_name"].includes(headerVal)) return { wch: 30 };
+            return { wch: Math.min(Math.max(w, 10), 50) };
+        });
+
+        return ws;
+    }
+
+    // ─────────────────────────────────────────
+    // Date Formatting Helper
+    // ─────────────────────────────────────────
+    function formatDate(v) {
+        if (!v) return "";
+        if (v instanceof Date) {
+            const d = String(v.getDate()).padStart(2, '0');
+            const m = String(v.getMonth() + 1).padStart(2, '0');
+            return `${d}-${m}-${v.getFullYear()}`;
+        }
+        return String(v);
+    }
+
+    // ─────────────────────────────────────────
+    // Main Processing
+    // ─────────────────────────────────────────
+    async function processFiles() {
+        if (!fileInput.files.length) { alert("Please upload at least one Excel file."); return; }
+
+        logDiv.innerHTML = '';
+        logDiv.style.display = 'block';
+        setLoading(true);
+
+        try {
+            let allRows = [];
+
+            for (const file of fileInput.files) {
+                log(`Reading: ${file.name}`);
+                const data     = await file.arrayBuffer();
+                const workbook = XLSX.read(data, { type: 'array', cellText: false, cellDates: true });
+                const sheet    = workbook.Sheets[workbook.SheetNames[0]];
+                const rawRows  = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+                let currentTripId = "";
+                let currentHeader = {};
+
+                rawRows.forEach(row => {
+                    const col0  = String(row[0]  || "").trim();
+                    const col1  = String(row[1]  || "").trim();
+                    const col10 = String(row[10] || "").trim();
+
+                    if (col10.startsWith('T')) currentTripId = col10.replace('T', '');
+
+                    if (col1.toUpperCase().includes("UNITED FACILITIES")) {
+                        const loginParts = String(row[2] || "").trim().split(' ');
+                        currentHeader = {
+                            TRIP_DATE:     row[0],
+                            AGENCY_NAME:   "UNITED FACILITIES",
+                            D_LOGIN:       String(row[2] || ""),
+                            VEHICLE_NO:    String(row[3] || "").replace(/-/g,'').replace(/ /g,'').toUpperCase(),
+                            DRIVER_NAME:   String(row[4] || ""),
+                            DRIVER_MOBILE: String(row[6] || ""),
+                            TRIP_ID:       currentTripId,
+                            DIRECTION:     (loginParts[0] || "").toUpperCase().replace('LOGIN','PICKUP').replace('LOGOUT','DROP'),
+                            SHIFT_TIME:    loginParts.length > 1 ? loginParts[1] : ""
+                        };
+                    }
+
+                    if (/^[0-9]+$/.test(col0)) {
+                        let office = String(row[8] || "").toUpperCase();
+                        if (["DELHI IGI T3","DELHI AIRPORT"].includes(office)) office = "Terminal-3";
+                        if (office === "DELHI IGI T2") office = "Terminal-2";
+
+                        allRows.push({
+                            ...currentHeader,
+                            PAX_NO:             row[0],
+                            REPORTING_TIME:     row[1],
+                            EMPLOYEE_ID:        row[2],
+                            EMPLOYEE_NAME:      row[3],
+                            GENDER:             row[4],
+                            EMP_CATEGORY:       row[5],
+                            FLIGHT_NO:          row[6],
+                            ADDRESS:            row[7],
+                            REPORTING_LOCATION: office,
+                            LANDMARK:           row[9],
+                            PASSENGER_MOBILE:   row[10]
+                        });
+                    }
+                });
+            }
+
+            log(`Merged ${allRows.length} passenger rows.`, 'info');
+            exportData(allRows, document.querySelector('input[name="exportType"]:checked').value);
+
+        } catch (err) {
+            log(`Error: ${err.message}`, 'error');
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    // ─────────────────────────────────────────
+    // Export
+    // ─────────────────────────────────────────
+    function exportData(data, type) {
+        const wb = XLSX.utils.book_new();
+        let ws;
+
+        if (type === 'billing') {
+            log("Formatting: Billing Database…");
+            const rows = data.map(r => {
+                const tid = String(r.TRIP_ID || "");
+                const eid = String(r.EMPLOYEE_ID || "");
+                return {
+                    trip_id:          tid,
+                    shift_date:       formatDate(r.TRIP_DATE),
+                    employee_id:      eid,
+                    employee_name:    r.EMPLOYEE_NAME,
+                    gender:           r.GENDER,
+                    shift_time:       r.SHIFT_TIME,
+                    pickup_time:      r.REPORTING_TIME,
+                    trip_direction:   r.DIRECTION,
+                    cab_reg_no:       r.VEHICLE_NO,
+                    vendor:           r.AGENCY_NAME,
+                    office:           r.REPORTING_LOCATION,
+                    landmark:         r.LANDMARK,
+                    address:          r.ADDRESS,
+                    flight_number:    r.FLIGHT_NO,
+                    emp_category:     r.EMP_CATEGORY,
+                    driver_name:      r.DRIVER_NAME,
+                    driver_mobile:    r.DRIVER_MOBILE,
+                    passenger_mobile: r.PASSENGER_MOBILE,
+                    unique_id:        `${tid}${eid}`,
+                    data_source:      "RAW_DATA"
+                };
+            });
+            ws = XLSX.utils.json_to_sheet(rows);
+
+        } else if (type === 'operation') {
+            log("Formatting: Operations (flat table)…");
+            ws = XLSX.utils.json_to_sheet(data);
+
+        } else if (type === 'roster') {
+            log("Formatting: Roster (grouped by trip)…");
+
+            data.sort((a, b) => String(a.SHIFT_TIME || "").localeCompare(String(b.SHIFT_TIME || "")));
+
+            const byTrip = {};
+            data.forEach(r => { if (!byTrip[r.TRIP_ID]) byTrip[r.TRIP_ID] = []; byTrip[r.TRIP_ID].push(r); });
+
+            const aoa = [];
+            for (const trip in byTrip) {
+                const rows = byTrip[trip];
+                const h = rows[0];
+                aoa.push([]);
+                aoa.push(["TRIP DATE","AGENCY NAME","LOGIN/SHIFT","VEHICLE NO","DRIVER NAME","DRIVER MOBILE","TRIP ID"]);
+                aoa.push([formatDate(h.TRIP_DATE), h.AGENCY_NAME, `${h.DIRECTION} ${h.SHIFT_TIME}`, h.VEHICLE_NO, h.DRIVER_NAME, h.DRIVER_MOBILE, h.TRIP_ID]);
+                aoa.push(["PAX NO","REPORTING TIME","EMP ID","NAME","GENDER","CATEGORY","FLIGHT","ADDRESS","LOCATION","LANDMARK","MOBILE"]);
+                rows.forEach(p => aoa.push([p.PAX_NO,p.REPORTING_TIME,p.EMPLOYEE_ID,p.EMPLOYEE_NAME,p.GENDER,p.EMP_CATEGORY,p.FLIGHT_NO,p.ADDRESS,p.REPORTING_LOCATION,p.LANDMARK,p.PASSENGER_MOBILE]));
+            }
+            ws = XLSX.utils.aoa_to_sheet(aoa);
+        }
+
+        // ── Apply full formatting ──
+        log("Applying Excel styles…");
+        applySheetStyling(ws);
+
+        XLSX.utils.book_append_sheet(wb, ws, "Cleaned Data");
+        log("Downloading file…");
+        XLSX.writeFile(wb, `Cleaned_${type.toUpperCase()}_Data.xlsx`);
+        log("Done! ✅", 'success');
+    }
+
+    processBtn.addEventListener('click', processFiles);
+</script>
 </body>
 </html>
