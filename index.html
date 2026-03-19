@@ -599,8 +599,8 @@
                 "EMPLOYEE NAME":  r.EMPLOYEE_NAME,
                 "ADDRESS":        r.ADDRESS,
                 "CAB REG NO":     r.VEHICLE_NO,
-                "SHIFT TIME":     r.SHIFT_TIME,
                 "PLAN TIME":      formatDateTime(r.REPORTING_TIME),
+                "SHIFT TIME":     r.SHIFT_TIME,
                 "LOCALITY":       r.REPORTING_LOCATION,
                 "KILOMETER":      "",
                 "MARSHAL":        "",
@@ -610,7 +610,28 @@
 
         } else if (type === 'operation') {
             log("Formatting: Operations (flat table)…");
-            ws = XLSX.utils.json_to_sheet(data);
+            const opRows = data.map((r, idx) => ({
+                "SR.NO":          idx + 1,
+                "SHIFT DATE":     formatDate(r.TRIP_DATE),
+                "TRIP ID":        String(r.TRIP_ID || ""),
+                "FLIGHT NUMBER":  r.FLIGHT_NO,
+                "EMPLOYEE ID":    String(r.EMPLOYEE_ID || ""),
+                "GENDER":         r.GENDER,
+                "EMPLOYEE NAME":  r.EMPLOYEE_NAME,
+                "ADDRESS":        r.ADDRESS,
+                "CAB REG NO":     r.VEHICLE_NO,
+                "PLAN TIME":      formatDateTime(r.REPORTING_TIME),
+                "SHIFT TIME":     r.SHIFT_TIME,
+                "LOCALITY":       r.REPORTING_LOCATION,
+                "TRIP DIRECTION": r.DIRECTION,
+                "VENDOR":         r.AGENCY_NAME,
+                "LANDMARK":       r.LANDMARK,
+                "EMP CATEGORY":   r.EMP_CATEGORY,
+                "DRIVER NAME":    r.DRIVER_NAME,
+                "DRIVER MOBILE":  r.DRIVER_MOBILE,
+                "PAX MOBILE":     r.PASSENGER_MOBILE
+            }));
+            ws = XLSX.utils.json_to_sheet(opRows);
 
         } else if (type === 'roster') {
             log("Formatting: Roster (grouped by trip)…");
